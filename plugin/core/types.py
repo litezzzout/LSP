@@ -191,6 +191,7 @@ class Settings:
     diagnostics_panel_include_severity_level = None  # type: int
     disabled_capabilities = None  # type: List[str]
     document_highlight_style = None  # type: str
+    semantic_highlighting = None  # type: bool
     inhibit_snippet_completions = None  # type: bool
     inhibit_word_completions = None  # type: bool
     log_debug = None  # type: bool
@@ -229,6 +230,7 @@ class Settings:
         r("diagnostics_panel_include_severity_level", 4)
         r("disabled_capabilities", [])
         r("document_highlight_style", "underline")
+        r("semantic_highlighting", False)
         r("log_debug", False)
         r("log_max_size", 8 * 1024)
         r("lsp_code_actions_on_save", {})
