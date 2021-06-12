@@ -111,26 +111,16 @@ class LspSemanticCommand(LspTextCommand):
             point2 = self.view.text_point(things[0], things[1]+things[2])
             my_region = sublime.Region(point1, point2)
 
-            if things[3] == MACRO:
-                my_macros.append(my_region)
-            if things[3] == STRUCT:
-                my_structs.append(my_region)
-            if things[3] == FIELD:
-                my_fields.append(my_region)
-            if things[3] == ENUM:
-                my_enums.append(my_region)
-            if things[3] == ENUM_FIELD:
-                my_enum_fields.append(my_region)
-
-            if things[3] == FUNCTION:
-                my_funcs.append(my_region)
-
+            if things[3] ==      MACRO: my_macros.append(my_region)
+            if things[3] ==     STRUCT: my_structs.append(my_region)
+            if things[3] ==      FIELD: my_fields.append(my_region)
+            if things[3] ==   FUNCTION: my_funcs.append(my_region)
+            if things[3] ==  PARAMETER: my_params.append(my_region)
+            if things[3] ==   VARIABLE: my_vars.append(my_region)
+            if things[3] ==       ENUM: my_enums.append(my_region)
+            if things[3] == ENUM_FIELD: my_enum_fields.append(my_region)
             if things[3] == TYPEDEF or things[3] == 11:
                 my_types.append(my_region)
-            if things[3] == PARAMETER:
-                my_params.append(my_region)
-            if things[3] == VARIABLE:
-                my_vars.append(my_region)
 
             prev_row = things[0]
             prev_col = things[1]
