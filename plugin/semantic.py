@@ -13,19 +13,9 @@ import sublime
 
 SUBLIME_WORD_MASK = 515
 
-
-VARIABLE   = 1
-PARAMETER  = 2
-FUNCTION   = 3
-FIELD      = 6
-STRUCT     = 8
-ENUM       = 9
-ENUM_FIELD = 10
-TYPEDEF    = 17
-MACRO      = 18
-# 5 4 7 9  
-
 class LspSemanticCommand(LspTextCommand):
+
+    capability = 'documentSymbolProvider'
 
     def __init__(self, view: sublime.View) -> None:
         super().__init__(view)
@@ -54,8 +44,6 @@ class LspSemanticCommand(LspTextCommand):
         self._hover = None  # type: Optional[Any]
         self._actions_by_config = {}  # type: Dict[str, List[CodeActionOrCommand]]
         self._diagnostics_by_config = []  # type: Sequence[Tuple[SessionBufferProtocol, Sequence[Diagnostic]]]
-        # TODO: For code actions it makes more sense to use the whole selection under mouse (if available)
-        # rather than just the hover point.
 
         def run_async() -> None:
             listener = wm.listener_for_view(self.view)
@@ -64,24 +52,26 @@ class LspSemanticCommand(LspTextCommand):
             if not only_diagnostics:
                 self.request_symbol_semantic_async(listener, hover_point)
             self._diagnostics_by_config, covering = listener.diagnostics_touching_point_async(hover_point)
-            # if self._diagnostics_by_config:
-            #     self.show_hover(listener, hover_point, only_diagnostics)
-            # if not only_diagnostics:
-            #     actions_manager.request_for_region_async(
-            #         self.view, covering, self._diagnostics_by_config,
-            #         functools.partial(self.handle_code_actions, listener, hover_point))
 
         sublime.set_timeout_async(run_async)
 
     def request_symbol_semantic_async(self, listener: AbstractViewListener, point: int) -> None:
         session = listener.session('hoverProvider', point)
+        # session = self.best_session(self.capability)
         if session:
+            token_types = None
+            try:
+                token_types = session.get_capability('semanticTokensProvider')['legend']['tokenTypes']
+            except:
+                return
+
+            # print('LSP--tokenTypes-:   ', token_types)
             params = {"textDocument": text_document_identifier(self.view)}
             session.send_request_async(
                 Request("textDocument/semanticTokens/full", params, self.view),
-                lambda response: self.handle_response(listener, response, point))
+                lambda response: self.handle_response(listener, response, token_types))
 
-    def handle_response(self, listener: AbstractViewListener, response: Optional[Any], point: int) -> None:
+    def handle_response(self, listener: AbstractViewListener, response: Optional[Any], token_types: list) -> None:
         # print("LSSSP:HOVER:RESPONSE:   ", response['data'])
 
         my_structs     = []
@@ -111,16 +101,15 @@ class LspSemanticCommand(LspTextCommand):
             point2 = self.view.text_point(things[0], things[1]+things[2])
             my_region = sublime.Region(point1, point2)
 
-            if things[3] ==      MACRO: my_macros.append(my_region)
-            if things[3] ==     STRUCT: my_structs.append(my_region)
-            if things[3] ==      FIELD: my_fields.append(my_region)
-            if things[3] ==   FUNCTION: my_funcs.append(my_region)
-            if things[3] ==  PARAMETER: my_params.append(my_region)
-            if things[3] ==   VARIABLE: my_vars.append(my_region)
-            if things[3] ==       ENUM: my_enums.append(my_region)
-            if things[3] == ENUM_FIELD: my_enum_fields.append(my_region)
-            if things[3] == TYPEDEF or things[3] == 11:
-                my_types.append(my_region)
+            if token_types[things[3]] ==     'macro': my_macros.append(my_region)
+            if token_types[things[3]] ==     'class': my_structs.append(my_region)
+            if token_types[things[3]] ==  'property': my_fields.append(my_region)
+            if token_types[things[3]] ==  'function': my_funcs.append(my_region)
+            if token_types[things[3]] == 'parameter': my_params.append(my_region)
+            if token_types[things[3]] ==  'variable': my_vars.append(my_region)
+            if token_types[things[3]] ==      'enum': my_enums.append(my_region)
+            if token_types[things[3]] =='enumMember': my_enum_fields.append(my_region)
+            if token_types[things[3]] ==      'type': my_types.append(my_region)
 
             prev_row = things[0]
             prev_col = things[1]
@@ -136,3 +125,20 @@ class LspSemanticCommand(LspTextCommand):
         self.view.add_regions('semantic_func',      my_funcs,       'semantic_func',      flags= sublime.DRAW_NO_OUTLINE)
 
         # self._hover = response
+
+import sublime_plugin
+class SemanticListener(sublime_plugin.EventListener):  	
+    def on_post_save_async(self, view):
+        view.run_command('lsp_semantic')
+
+    def on_activated_async(self, view):
+        view.run_command('lsp_semantic')
+
+import time
+class SemanticListenerTwo(sublime_plugin.TextChangeListener):
+    def on_text_changed_async(self, changes):
+		# [print('textChange: ',list(a.str))  for a in changes]
+        for change in changes:
+            if len(change.str) == 1 and (change.str == ' ' or change.str == ';' or change.str == '.'):
+                time.sleep(.5)
+                self.buffer.views()[0].run_command('lsp_semantic')
