@@ -55,7 +55,6 @@ from .plugin.references import LspSymbolReferencesCommand
 from .plugin.rename import LspSymbolRenameCommand
 from .plugin.save_command import LspSaveCommand
 from .plugin.selection_range import LspExpandSelectionCommand
-from .plugin.semantic import LspSemanticCommand
 from .plugin.symbols import LspDocumentSymbolsCommand
 from .plugin.symbols import LspSelectionAddCommand
 from .plugin.symbols import LspSelectionClearCommand
@@ -66,7 +65,9 @@ from .plugin.tooling import LspDumpBufferCapabilities
 from .plugin.tooling import LspDumpWindowConfigs
 from .plugin.tooling import LspParseVscodePackageJson
 from .plugin.tooling import LspTroubleshootServerCommand
-
+from .plugin.semantic import LspSemanticCommand
+from .plugin.semantic import SemanticListener
+from .plugin.semantic import SemanticListenerTwo
 
 def _get_final_subclasses(derived: List[Type], results: List[Type]) -> None:
     for d in derived:
