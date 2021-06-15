@@ -15,7 +15,7 @@ SUBLIME_WORD_MASK = 515
 
 class LspSemanticCommand(LspTextCommand):
 
-    capability = 'documentSymbolProvider'
+    capability = 'semanticTokensProvider'
 
     def __init__(self, view: sublime.View) -> None:
         super().__init__(view)
@@ -24,55 +24,40 @@ class LspSemanticCommand(LspTextCommand):
     def run(
         self,
         edit: sublime.Edit,
-        only_diagnostics: bool = False,
-        point: Optional[int] = None,
-        event: Optional[dict] = None
+        only_diagnostics: bool = False
     ) -> None:
-        temp_point = point
-        if temp_point is None:
-            region = first_selection_region(self.view)
-            if region is not None:
-                temp_point = region.begin()
-        if temp_point is None:
-            return
+
         window = self.view.window()
         if not window:
             return
-        hover_point = temp_point
         wm = windows.lookup(window)
         self._base_dir = wm.get_project_path(self.view.file_name() or "")
-        self._hover = None  # type: Optional[Any]
         self._actions_by_config = {}  # type: Dict[str, List[CodeActionOrCommand]]
         self._diagnostics_by_config = []  # type: Sequence[Tuple[SessionBufferProtocol, Sequence[Diagnostic]]]
 
         def run_async() -> None:
-            listener = wm.listener_for_view(self.view)
-            if not listener:
-                return
             if not only_diagnostics:
-                self.request_symbol_semantic_async(listener, hover_point)
-            self._diagnostics_by_config, covering = listener.diagnostics_touching_point_async(hover_point)
+                self.request_semantic_tokens_async()
 
         sublime.set_timeout_async(run_async)
 
-    def request_symbol_semantic_async(self, listener: AbstractViewListener, point: int) -> None:
-        session = listener.session('hoverProvider', point)
-        # session = self.best_session(self.capability)
+    def request_semantic_tokens_async(self) -> None:
+        session = self.best_session(self.capability)
         if session:
             token_types = None
             try:
                 token_types = session.get_capability('semanticTokensProvider')['legend']['tokenTypes']
             except:
+                # print('semantic highlighting capabilies not provided by the server!!!')
                 return
 
-            # print('LSP--tokenTypes-:   ', token_types)
             params = {"textDocument": text_document_identifier(self.view)}
             session.send_request_async(
                 Request("textDocument/semanticTokens/full", params, self.view),
-                lambda response: self.handle_response(listener, response, token_types))
+                lambda response: self.handle_response(response, token_types))
 
-    def handle_response(self, listener: AbstractViewListener, response: Optional[Any], token_types: list) -> None:
-        # print("LSSSP:HOVER:RESPONSE:   ", response['data'])
+    def handle_response(self, response: Optional[Any], token_types: list) -> None:
+        print("LSP:RESPONSE:   ", response['data'])
 
         my_structs     = []
         my_vars        = []
@@ -124,21 +109,108 @@ class LspSemanticCommand(LspTextCommand):
         self.view.add_regions('semantic_field',     my_fields,      'semantic_field',     flags= sublime.DRAW_NO_OUTLINE)
         self.view.add_regions('semantic_func',      my_funcs,       'semantic_func',      flags= sublime.DRAW_NO_OUTLINE)
 
-        # self._hover = response
+        '''
+        Color Scheme :
+        these is what your color scheme should look like to work with semantic highligthing
+    
+        "variables":
+        {
+            "background": "#0B0c0f",
+            "background1": "#0B0c0e",
+
+            "default": "#569cd6",
+            "keyword": "#569cd6",
+
+        
+            "function": "#dbdbaa",
+            "parameter": "#C586C0",
+            "variable": "#94dbfd",
+
+            "struct": "#4eaab0",
+            "typedef": "#4ec9b0",
+            "macro": "#beb7ff",
+
+            "number": "#6897BB",
+            "string": "#cd9069",
+
+            "field": "#DADADA",
+
+        },
+            "globals":
+        {
+            "foreground": "var(foreground)",
+            "background": "var(background)",
+        },
+
+        "rules":
+        [
+            {
+                "name": "variable",
+                "scope": "semantic_var",
+                "foreground": "var(variable)",
+                "background": "var(background1)"
+            },
+            {
+                "name": "param",
+                "scope": "semantic_param",
+                "foreground": "var(parameter)",
+                "background": "var(background1)"
+            },
+            {
+                "name": "struct",
+                "scope": "semantic_struct, semantic_enum",
+                "foreground": "var(struct)",
+                "background": "var(background1)"
+            },
+            {
+                "name": "type",
+                "scope": "semantic_type",
+                "foreground": "var(typedef)",
+                "background": "var(background1)"
+            },
+            {
+                "name": "macro",
+                "scope": "semantic_macro",
+                "foreground": "var(macro)",
+                "background": "var(background1)"
+            },
+
+            {
+                "name": "enumField",
+                "scope": "semantic_enumfield",
+                "foreground": "var(field)",
+                "background": "var(background1)",
+                "font_style": "italic"
+            },
+
+            {
+                "name": "field",
+                "scope": "semantic_field",
+                "foreground": "var(field)",
+                "background": "var(background1)",
+            },
+
+            {
+                "name": "function",
+                "scope": "semantic_func",
+                "foreground": "var(function)",
+                "background": "var(background1)"
+            },
+        ]
+        '''
 
 import sublime_plugin
-class SemanticListener(sublime_plugin.EventListener):  	
+import time
+
+class SemanticListener(sublime_plugin.EventListener, sublime_plugin.TextChangeListener):  	
     def on_post_save_async(self, view):
         view.run_command('lsp_semantic')
 
-    def on_activated_async(self, view):
+    def on_activated_async(self, view): # this needs work, doesn't always highlight on the first try when activating a view
         view.run_command('lsp_semantic')
 
-import time
-class SemanticListenerTwo(sublime_plugin.TextChangeListener):
     def on_text_changed_async(self, changes):
-		# [print('textChange: ',list(a.str))  for a in changes]
-        for change in changes:
-            if len(change.str) == 1 and (change.str == ' ' or change.str == ';' or change.str == '.'):
-                time.sleep(.5)
-                self.buffer.views()[0].run_command('lsp_semantic')
+     for change in changes:
+        if len(change.str) == 1 and (change.str == ' ' or change.str == ';' or change.str == '.'):
+            time.sleep(.5)
+            self.buffer.views()[0].run_command('lsp_semantic')

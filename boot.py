@@ -65,9 +65,7 @@ from .plugin.tooling import LspDumpBufferCapabilities
 from .plugin.tooling import LspDumpWindowConfigs
 from .plugin.tooling import LspParseVscodePackageJson
 from .plugin.tooling import LspTroubleshootServerCommand
-from .plugin.semantic import LspSemanticCommand
-from .plugin.semantic import SemanticListener
-from .plugin.semantic import SemanticListenerTwo
+from .plugin.semantic import LspSemanticCommand, SemanticListener # these two could be collapsed into one?
 
 def _get_final_subclasses(derived: List[Type], results: List[Type]) -> None:
     for d in derived:
