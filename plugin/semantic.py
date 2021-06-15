@@ -5,8 +5,6 @@ from .core.registry import LspTextCommand
 from .core.registry import windows
 from .core.sessions import SessionBufferProtocol
 from .core.typing import List, Optional, Any, Dict, Tuple, Sequence
-from .core.views import first_selection_region
-from .core.windows import AbstractViewListener
 from .core.views import text_document_identifier
 import sublime
 
@@ -57,7 +55,7 @@ class LspSemanticCommand(LspTextCommand):
                 lambda response: self.handle_response(response, token_types))
 
     def handle_response(self, response: Optional[Any], token_types: list) -> None:
-        print("LSP:RESPONSE:   ", response['data'])
+        # print("LSP:RESPONSE:   ", response['data'])
 
         my_structs     = []
         my_vars        = []
